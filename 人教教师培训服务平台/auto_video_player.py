@@ -358,6 +358,34 @@ def wait_video_end(driver, speed: float, poll_interval: float = 2.0, max_wait: i
         time.sleep(poll_interval)
 
 
+def dismiss_end_dialog(driver, timeout: int = 5) -> bool:
+    """
+    点击视频播放结束后弹出的“本视频已播放结束”弹窗中的“我知道了”按钮。
+    返回是否成功关闭弹窗。
+    """
+    try:
+        # 等待弹窗中的“我知道了”按钮出现
+        btn = WebDriverWait(driver, timeout).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, ".stop-reporting-bg .stop-reporting .stop-reporting-btn"))
+        )
+        # 额外校验按钮文本是否包含“我知道了”，避免误点
+        if "我知道了" not in (btn.text or "").strip():
+            # 尝试用 XPath 按文本重新定位
+            btn = WebDriverWait(driver, timeout).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), '我知道了')]"))
+            )
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+        driver.execute_script("arguments[0].click();", btn)
+        log("已点击“我知道了”关闭播放结束弹窗")
+        time.sleep(0.5)
+        return True
+    except TimeoutException:
+        log("未检测到播放结束弹窗，继续下一步")
+    except Exception as e:
+        log(f"关闭播放结束弹窗失败: {e}")
+    return False
+
+
 def close_current_tab_and_return(driver, list_handle: str) -> None:
     """关闭当前标签页并切回列表页。"""
     try:
@@ -439,6 +467,10 @@ def auto_play(args) -> None:
 
                 # 等待视频播放结束
                 finished = wait_video_end(driver, args.speed, max_wait=args.max_wait)
+
+                # 如果视频正常结束，页面会弹出“本视频已播放结束”提示，先点击“我知道了”
+                if finished:
+                    dismiss_end_dialog(driver)
 
                 if opened_in_same_tab:
                     # 当前标签页打开的，直接回到列表页
