@@ -1,5 +1,5 @@
 """
-一键启动 Edge 并开启远程调试
+一键启动 Edge 并开启远程调试（支持 Windows / macOS）
 用法：
     python launch_edge_debug.py
 
@@ -8,23 +8,43 @@
 """
 
 import os
+import platform
+import socket
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 PORT = 9222
 
 
 def find_edge():
-    candidates = [
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
-    ]
+    """在各平台查找 Edge 可执行文件，返回路径；找不到返回 None。"""
+    system = platform.system()
+    if system == "Windows":
+        candidates = [
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
+        ]
+    elif system == "Darwin":  # macOS
+        candidates = [
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        ]
+    else:  # Linux 等（Edge 在 Linux 上为 edge 命令）
+        candidates = [
+            "/opt/microsoft/msedge/msedge",
+            "/usr/bin/microsoft-edge",
+        ]
+
     for p in candidates:
         if Path(p).exists():
             return p
     return None
+
+
+def is_windows():
+    return platform.system() == "Windows"
 
 
 def main():
@@ -36,7 +56,6 @@ def main():
     print(f"Edge 路径: {edge}")
 
     # 检查端口是否已被占用
-    import socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.bind(("127.0.0.1", PORT))
@@ -50,13 +69,22 @@ def main():
     print("在打开的 Edge 中登录平台并导航到课程页面，然后运行相关脚本")
 
     # 使用 --user-data-dir 独立配置目录，避免与已登录的 Edge 冲突
-    user_data = Path(os.environ.get("TEMP", r"C:\Temp")) / "edge_auto_watch"
+    if is_windows():
+        base = os.environ.get("TEMP", r"C:\Temp")
+    else:  # macOS / Linux 放到临时目录下
+        base = tempfile.gettempdir()
+    user_data = Path(base) / "edge_auto_watch"
     user_data.mkdir(parents=True, exist_ok=True)
 
-    subprocess.Popen(
-        [edge, f"--remote-debugging-port={PORT}", f"--user-data-dir={user_data}"],
-        creationflags=0x00000008,  # DETACHED_PROCESS
-    )
+    cmd = [edge, f"--remote-debugging-port={PORT}", f"--user-data-dir={user_data}"]
+
+    if is_windows():
+        # Windows：使用 DETACHED_PROCESS 让子进程脱离当前控制台
+        subprocess.Popen(cmd, creationflags=0x00000008)
+    else:
+        # macOS / Linux：start_new_session=True 使子进程独立，不被终端关闭影响
+        subprocess.Popen(cmd, start_new_session=True)
+
     print("Edge 已启动，几秒后可访问 http://localhost:9222/json 验证")
 
 
