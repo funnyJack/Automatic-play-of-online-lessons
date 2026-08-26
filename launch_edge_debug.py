@@ -47,7 +47,7 @@ def main():
         sys.exit(0)
 
     print(f"启动 Edge，远程调试端口 = {PORT}")
-    print("在打开的 Edge 中登录平台并导航到课程页面，然后运行 auto_watch_course.py")
+    print("在打开的 Edge 中登录平台并导航到课程页面，然后运行相关脚本")
 
     # 使用 --user-data-dir 独立配置目录，避免与已登录的 Edge 冲突
     user_data = Path(os.environ.get("TEMP", r"C:\Temp")) / "edge_auto_watch"
