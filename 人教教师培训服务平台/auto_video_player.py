@@ -23,6 +23,9 @@
     # 5. 手动标记/取消标记已看
     python auto_video_player.py --mark-watched "四年级必学 | 强化育人核心功能..."
     python auto_video_player.py --mark-unwatched "五年级必学 | 做好高年级起步..."
+特别说明
+    #1、如果打开的 edge 中有去除广告的拓展插件，建议全部关闭，否则可能不会自动打开新的标签页
+    #2、本脚本有自动记录哪些已经查看过的功能，如果想自己添加，则先使用 --inspect 参数获取完整视频名称，然后添加到 json 文件中
 """
 
 import argparse
