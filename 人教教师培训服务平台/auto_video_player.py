@@ -23,9 +23,6 @@
     # 5. 手动标记/取消标记已看
     python auto_video_player.py --mark-watched "四年级必学 | 强化育人核心功能..."
     python auto_video_player.py --mark-unwatched "五年级必学 | 做好高年级起步..."
-特别说明：
-    #1、 如果浏览器有屏蔽广告之类的插件，建议都关闭，否则不会自动跳转标签页
-    #2、 本脚本带有自动记录已观看的视频功能，如果想快速添加已观看的内容，可以先用 inspect 命令扫描一遍，然后将视频名称正确的填入 json 文件里。
 """
 
 import argparse
@@ -223,28 +220,54 @@ def wait_for_new_tab(driver, original_handles: List[str], timeout: int = 30) -> 
     log(f"已切换到新标签页: {driver.title} (handle={new_handle[:16]}...)")
     return new_handle
 
+def set_video_speed(driver, speed: float) -> bool:
+    """
+    设置播放倍速。
+    优先通过播放器自定义倍速 UI（#volumeMultiple + .multipleCont）设置；
+    失败时回退到直接修改 HTML5 video.playbackRate。
+    """
+    speed_label = f"{speed:g}X"  # 例如 2.0 -> "2X" 或 "2.0X"
+    speed_label_alt = f"{speed:.1f}X"  # "2.0X"
 
-def is_inside_notice(element) -> bool:
-    """判断元素是否位于“培训须知”区域内，避免误点。"""
+    # 1. 尝试通过播放器 UI 设置
     try:
-        node = element
-        for _ in range(8):  # 向上检查 8 层祖先
-            if not node:
-                break
-            text = (node.get_attribute("innerText") or "").strip()
-            if "培训须知" in text:
-                return True
-            # 也检查 id/class 等属性里是否带 notice
-            attrs = " ".join([
-                node.get_attribute("id") or "",
-                node.get_attribute("class") or "",
-            ])
-            if "notice" in attrs.lower() or "培训须知" in attrs:
-                return True
-            node = node.find_element(By.XPATH, "..")
-    except Exception:
-        pass
+        # 打开倍速下拉菜单
+        open_btn = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.ID, "volumeMultiple"))
+        )
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", open_btn)
+        driver.execute_script("arguments[0].click();", open_btn)
+        log("已打开倍速选择菜单")
+        time.sleep(0.5)
+
+        # 查找目标倍速选项：.multipleCont a 下的 span 文本匹配 speedX
+        options = driver.find_elements(By.CSS_SELECTOR, ".multipleCont a")
+        for opt in options:
+            spans = opt.find_elements(By.TAG_NAME, "span")
+            for span in spans:
+                text = (span.text or "").strip()
+                if text == speed_label or text == speed_label_alt:
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", opt)
+                    driver.execute_script("arguments[0].click();", opt)
+                    log(f"已通过播放器 UI 设置倍速为 {speed}x")
+                    return True
+        log(f"未在倍速菜单中找到 {speed_label}/{speed_label_alt}，尝试 JS 设置")
+    except Exception as e:
+        log(f"通过 UI 设置倍速失败，尝试 JS 设置: {e}")
+
+    # 2. 兜底：直接修改 video.playbackRate
+    try:
+        video = driver.find_element(By.TAG_NAME, "video")
+        driver.execute_script("""
+            const v = arguments[0];
+            v.playbackRate = arguments[1];
+        """, video, speed)
+        log(f"已通过 JS 设置倍速为 {speed}x")
+        return True
+    except Exception as e:
+        log(f"JS 设置倍速也失败: {e}")
     return False
+
 
 def wait_video_end(driver, speed: float, poll_interval: float = 2.0, max_wait: int = 0) -> bool:
     """
@@ -261,18 +284,17 @@ def wait_video_end(driver, speed: float, poll_interval: float = 2.0, max_wait: i
         return False
 
     # 设置倍速、静音、尝试播放（防止某些播放器未自动播放）
+    set_video_speed(driver, speed)
     try:
         driver.execute_script("""
             const v = arguments[0];
             v.muted = true;
-            v.playbackRate = arguments[1];
             if (v.paused) {
                 v.play().catch(e => console.log('play error', e));
             }
-        """, video, speed)
-        log(f"已设置播放倍速为 {speed}x")
+        """, video)
     except WebDriverException as e:
-        log(f"设置倍速/播放失败: {e}")
+        log(f"静音/播放失败: {e}")
 
     start = time.time()
     last_current = 0.0
