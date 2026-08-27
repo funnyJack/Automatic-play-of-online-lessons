@@ -320,11 +320,13 @@ def wait_video_end(driver, speed: float, poll_interval: float = 2.0, max_wait: i
             """, video)
         except StaleElementReferenceException:
             log("视频元素已失效，尝试重新查找...")
-            try:
-                video = driver.find_element(By.TAG_NAME, "video")
-                continue
-            except NoSuchElementException:
-                return False
+            log("可能是已经播放完毕，尝试点击“我知道了”")
+            return True
+            # try:
+            #     video = driver.find_element(By.TAG_NAME, "video")
+            #     continue
+            # except NoSuchElementException:
+            #     return False
 
         ended = state.get("ended", False)
         duration = state.get("duration", 0)
