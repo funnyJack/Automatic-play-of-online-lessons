@@ -43,6 +43,7 @@ try:
     from selenium.webdriver.common.by import By
     from selenium.webdriver.edge.options import Options as EdgeOptions
     from selenium.webdriver.edge.service import Service as EdgeService
+    from selenium.webdriver.edge import webdriver as edge_webdriver
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.common.exceptions import (
