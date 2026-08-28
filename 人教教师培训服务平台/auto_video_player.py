@@ -7,6 +7,8 @@
 本脚本固定连接由 launch_edge_debug.py 启动的 Edge 远程调试端口（127.0.0.1:9222），
 不会自己启动浏览器，避免与已有登录态冲突。
 
+网址：https://wp.pep.com.cn/web/index.php?/px/index/196
+
 用法示例：
     # 1. 先启动 Edge（由 launch_edge_debug.py 完成）
     python D:/workSpace/python-script/Automatic-play-of-online-lessons/人教教师培训服务平台/launch_edge_debug.py
